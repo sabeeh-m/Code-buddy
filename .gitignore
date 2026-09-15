@@ -1,0 +1,16 @@
+# compiled output
+/dist
+/node_modules
+
+# logs
+*.log
+npm-debug.log*
+
+# tests
+/coverage
+
+# environment
+.env
+
+# temp
+tmp/
