@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { InternalServerErrorException } from '@nestjs/common';
 import { execFileSync } from 'child_process';
 import { AgentController } from './agent.controller';
-import { PlannerService } from './services/planner.service';
+import { PlannerService } from './planner.service';
 
 jest.mock('child_process');
 
@@ -54,5 +55,19 @@ describe('AgentController', () => {
       'src/a.ts',
       'src/b.ts',
     ]);
+  });
+
+  it('wraps a git ls-files failure in a clear InternalServerErrorException', async () => {
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error('git: command not found');
+    });
+
+    await expect(
+      controller.createPlan({ prompt: 'add a feature' }),
+    ).rejects.toThrow(InternalServerErrorException);
+    await expect(
+      controller.createPlan({ prompt: 'add a feature' }),
+    ).rejects.toThrow(/git ls-files.*git: command not found/);
+    expect(createPlan).not.toHaveBeenCalled();
   });
 });

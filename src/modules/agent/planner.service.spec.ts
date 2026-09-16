@@ -29,7 +29,6 @@ describe('PlannerService', () => {
     }).compile();
 
     service = module.get<PlannerService>(PlannerService);
-    await service.onModuleInit();
   });
 
   it('should be defined', () => {
@@ -70,5 +69,13 @@ describe('PlannerService', () => {
     });
 
     await expect(service.createPlan('add X', [])).rejects.toThrow();
+  });
+
+  it('throws the clear plan-failure message when Gemini returns malformed JSON', async () => {
+    mockGenerateContent.mockResolvedValue({ text: 'not valid json{' });
+
+    await expect(service.createPlan('add X', [])).rejects.toThrow(
+      'Planner Agent failed to return a valid structured execution plan.',
+    );
   });
 });

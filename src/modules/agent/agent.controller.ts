@@ -1,6 +1,11 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  InternalServerErrorException,
+  Post,
+} from '@nestjs/common';
 import { execFileSync } from 'child_process';
-import { PlannerService } from './services/planner.service';
+import { PlannerService } from './planner.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   planRequestSchema,
@@ -19,12 +24,20 @@ export class AgentController {
   async createPlan(
     @Body(new ZodValidationPipe(planRequestSchema)) body: PlanRequest,
   ): Promise<PlannerOutput> {
-    const fileTree = execFileSync('git', ['ls-files'], {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-    })
-      .split('\n')
-      .filter(Boolean);
+    let fileTree: string[];
+    try {
+      fileTree = execFileSync('git', ['ls-files'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      })
+        .split('\n')
+        .filter(Boolean);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(
+        `Failed to gather the project file tree via "git ls-files": ${message}`,
+      );
+    }
 
     return this.plannerService.createPlan(body.prompt, fileTree);
   }

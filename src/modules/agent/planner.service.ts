@@ -1,33 +1,29 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
 import type { GoogleGenAI } from '@google/genai' with {
   'resolution-mode': 'require',
 };
 import { loadGoogleGenAI } from './google-genai-loader';
-import type { EnvConfig } from '../../../config/schemas/env.schema';
-import {
-  PlannerResponseSchema,
-  PlannerOutput,
-} from '../schemas/planner.schema';
+import type { EnvConfig } from '../../config/schemas/env.schema';
+import { PlannerResponseSchema, PlannerOutput } from './schemas/planner.schema';
 
 @Injectable()
-export class PlannerService implements OnModuleInit {
+export class PlannerService {
   private readonly logger = new Logger(PlannerService.name);
-  private genAI!: GoogleGenAI;
+  private genAI: GoogleGenAI | null = null;
 
   constructor(private readonly configService: ConfigService<EnvConfig, true>) {}
 
-  async onModuleInit(): Promise<void> {
-    // @google/genai ships .cjs at runtime but no matching .d.cts, so
-    // TypeScript's nodenext resolution can't verify a static import is safe
-    // in this CommonJS project (TS1479) even though the runtime require()
-    // works fine. loadGoogleGenAI() isolates the dynamic import that
-    // sidesteps the static check (see google-genai-loader.ts for why).
-    const { GoogleGenAI } = await loadGoogleGenAI();
-    this.genAI = new GoogleGenAI({
-      apiKey: this.configService.get('GEMINI_API_KEY', { infer: true }),
-    });
+  // Lazily constructs the Gemini client on first use rather than at module bootstrap to ensure it's only loaded when needed.
+  private async getClient(): Promise<GoogleGenAI> {
+    if (!this.genAI) {
+      const { GoogleGenAI } = await loadGoogleGenAI();
+      this.genAI = new GoogleGenAI({
+        apiKey: this.configService.get('GEMINI_API_KEY', { infer: true }),
+      });
+    }
+    return this.genAI;
   }
 
   /**
@@ -49,8 +45,10 @@ export class PlannerService implements OnModuleInit {
       ${JSON.stringify(fileTree, null, 2)}
     `;
 
+    const genAI = await this.getClient();
+
     // Enforcing strict structured outputs via Gemini + Zod
-    const response = await this.genAI.models.generateContent({
+    const response = await genAI.models.generateContent({
       model: 'gemini-3.6-flash',
       contents: userContent,
       config: {
@@ -68,9 +66,19 @@ export class PlannerService implements OnModuleInit {
       );
     }
 
-    const parsedPlan = PlannerResponseSchema.parse(
-      JSON.parse(rawText) as unknown,
-    );
+    let parsedPlan: PlannerOutput;
+    try {
+      parsedPlan = PlannerResponseSchema.parse(JSON.parse(rawText) as unknown);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Planner Agent returned unparseable output: ${message}`,
+      );
+      throw new Error(
+        'Planner Agent failed to return a valid structured execution plan.',
+        { cause: error },
+      );
+    }
 
     this.logger.log(
       `Plan generated successfully with ${parsedPlan.steps.length} steps.`,
