@@ -10,6 +10,7 @@ export const envSchema = z.object({
   CORS_ORIGIN: z.string().min(1).optional(),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+  GEMINI_API_KEY: z.string().min(1).optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

@@ -10,10 +10,11 @@ import type { EnvConfig } from './config/schemas/env.schema';
 import { HealthModule } from './modules/health/health.module';
 import { SandboxModule } from './modules/sandbox/sandbox.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { AgentModule } from './modules/agent/agent.module';
 
 const env = validateEnv(process.env);
 const isProduction = env.NODE_ENV === 'production';
-const devOnlyModules = isProduction ? [] : [SandboxModule];
+const devOnlyModules = isProduction ? [] : [SandboxModule, AgentModule];
 
 if (!isProduction) {
   // Runs before Nest's own Logger exists, so this uses console directly.
