@@ -22,6 +22,7 @@ describe('validateEnv', () => {
         CORS_ORIGIN: 'https://example.com',
         THROTTLE_TTL_MS: '30000',
         THROTTLE_LIMIT: '50',
+        GEMINI_API_KEY: 'test-key',
       }),
     ).toEqual({
       NODE_ENV: 'production',
@@ -31,6 +32,7 @@ describe('validateEnv', () => {
       CORS_ORIGIN: 'https://example.com',
       THROTTLE_TTL_MS: 30_000,
       THROTTLE_LIMIT: 50,
+      GEMINI_API_KEY: 'test-key',
     });
   });
 
